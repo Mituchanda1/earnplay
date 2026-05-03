@@ -46,7 +46,16 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onS
         body: JSON.stringify(body)
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned unexpected response (${res.status}). Please try again later.`);
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Something went wrong');

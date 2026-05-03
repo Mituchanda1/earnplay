@@ -98,6 +98,33 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Request logger
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Health check for debugging (Moved up so it's not caught by /api/*)
+  app.get("/api/health", async (req, res) => {
+    const distPath = path.resolve(__dirname, "..", "dist");
+    let distFiles: string[] = [];
+    try {
+      const fs = await import("fs/promises");
+      distFiles = await fs.readdir(distPath).catch(() => []);
+    } catch (e) {}
+
+    res.json({ 
+      status: "ok", 
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      dbConfigured: !!(process.env.MYSQL_HOST && process.env.MYSQL_DATABASE),
+      cwd: process.cwd(),
+      dirname: __dirname,
+      distPath,
+      distFiles
+    });
+  });
+
   // API routing
   app.get("/api/db-status", async (req, res) => {
     try {
@@ -281,27 +308,6 @@ async function startServer() {
       error: "API endpoint not found",
       method: req.method,
       path: req.originalUrl 
-    });
-  });
-
-  // Health check for debugging
-  app.get("/api/health", async (req, res) => {
-    const distPath = path.resolve(__dirname, "..", "dist");
-    let distFiles: string[] = [];
-    try {
-      const fs = await import("fs/promises");
-      distFiles = await fs.readdir(distPath).catch(() => []);
-    } catch (e) {}
-
-    res.json({ 
-      status: "ok", 
-      time: new Date().toISOString(),
-      env: process.env.NODE_ENV,
-      dbConfigured: !!(process.env.MYSQL_HOST && process.env.MYSQL_DATABASE),
-      cwd: process.cwd(),
-      dirname: __dirname,
-      distPath,
-      distFiles
     });
   });
 
