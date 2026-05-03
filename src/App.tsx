@@ -43,26 +43,22 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<any[]>(() => {
     const saved = localStorage.getItem('chatMessages');
     try {
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : [
-        {
-          id: '1',
-          sender: 'System',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
-          text: 'Welcome to the global chat!',
-          time: 'Just now'
-        }
-      ];
+      if (saved && saved !== 'undefined') {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch(e) {
-      return [
-        {
-          id: '1',
-          sender: 'System',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
-          text: 'Welcome to the global chat!',
-          time: 'Just now'
-        }
-      ];
+      console.error("Error parsing chatMessages from localStorage", e);
     }
+    return [
+      {
+        id: '1',
+        sender: 'System',
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
+        text: 'Welcome to the global chat!',
+        time: 'Just now'
+      }
+    ];
   });
   
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -70,12 +66,19 @@ export default function App() {
   });
   const [userData, setUserData] = useState(() => {
     const saved = localStorage.getItem('userData');
+    const defaultValue = { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
     let data;
     try {
-      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : null;
     } catch(e) {
-      data = { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+      console.error("Error parsing userData from localStorage", e);
+      data = null;
     }
+    
+    if (!data || typeof data !== 'object') {
+      data = { ...defaultValue };
+    }
+
     if (!data.activities) data.activities = [];
     if (!data.notifications) data.notifications = [];
     if (data.isPrivate === undefined) data.isPrivate = false;

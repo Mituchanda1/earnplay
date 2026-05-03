@@ -17,15 +17,6 @@
       } catch (e) {
         console.error('Failed to configure defensive fetch polyfill barrier', e);
       }
-      
-      const originalParse = JSON.parse;
-      JSON.parse = function(str, reviver) {
-        if (str === "undefined" || str === "NaN" || typeof str === "undefined") {
-          console.warn('Prevented JSON.parse from failing on "undefined" or undefined');
-          return undefined;
-        }
-        return originalParse(str, reviver);
-      };
     </script>
   </head>
   <body>
