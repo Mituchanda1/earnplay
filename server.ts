@@ -4,6 +4,7 @@ import path from "path";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+import cors from "cors";
 
 dotenv.config();
 
@@ -105,7 +106,10 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Middleware
+  app.use(cors());
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // Request logger
   app.use((req, res, next) => {
@@ -115,31 +119,6 @@ async function startServer() {
       console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl} [${res.statusCode}] - ${duration}ms - Host: ${req.get('host')}`);
     });
     next();
-  });
-
-  // Diagnostic endpoints (NO DB REQUIRED)
-  app.get("/healthz", (req, res) => {
-    res.status(200).send("OK Server Running - Port 3000");
-  });
-
-  app.get("/diagnostic", async (req, res) => {
-    const distPath = path.resolve(process.cwd(), "dist");
-    let distExists = false;
-    try {
-      const fs = await import("fs");
-      distExists = fs.existsSync(path.join(distPath, "index.html"));
-    } catch (e) {}
-
-    res.json({
-      message: "Server is alive and reachable",
-      env: process.env.NODE_ENV,
-      time: new Date().toISOString(),
-      headers: req.headers,
-      cwd: process.cwd(),
-      distPath,
-      distExists,
-      dbStatus: pool ? "Pool active" : "Pool not created"
-    });
   });
 
   // API routing
@@ -244,9 +223,42 @@ async function startServer() {
   // Use the router
   app.use("/api", apiRouter);
 
+  // Health check for debugging (Moved outside router for absolute paths)
+  app.get("/healthz", (req, res) => {
+    res.status(200).send("OK Server Running - Port 3000");
+  });
+
+  // Diagnostic endpoint
+  app.get("/diagnostic", async (req, res) => {
+    const distPath = path.resolve(process.cwd(), "dist");
+    let distExists = false;
+    let distFiles: string[] = [];
+    try {
+      const fs = await import("fs/promises");
+      distExists = (await fs.stat(path.join(distPath, "index.html")).catch(() => null)) !== null;
+      distFiles = await fs.readdir(distPath).catch(() => []);
+    } catch (e) {}
+
+    res.json({
+      message: "Server is alive and reachable",
+      env: process.env.NODE_ENV,
+      time: new Date().toISOString(),
+      headers: req.headers,
+      cwd: process.cwd(),
+      distPath,
+      distExists,
+      distFiles,
+      dbStatus: pool ? "Pool active" : "Pool not created"
+    });
+  });
+
   // API 404 handler - MUST return JSON
   app.use("/api", (req, res) => {
-    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+    console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ 
+      error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
+      tip: "Ensure you are calling the correct path (e.g., /api/auth/login)"
+    });
   });
 
   // Static serving selection
