@@ -118,10 +118,14 @@ async function startServer() {
       time: new Date().toISOString(),
       env: process.env.NODE_ENV,
       dbConfigured: !!(process.env.MYSQL_HOST && process.env.MYSQL_DATABASE),
+      host: req.get('host'),
+      protocol: req.protocol,
+      headers: req.headers,
       cwd: process.cwd(),
       dirname: __dirname,
       distPath,
-      distFiles
+      distFiles,
+      nodeVersion: process.version
     });
   });
 
@@ -302,13 +306,19 @@ async function startServer() {
   });
 
   // API 404 fallback - Handle all unmatched /api/* routes
+  // This must come BEFORE the static file serving for production
   app.all("/api/*", (req, res) => {
-    console.warn(`Unmatched API request: ${req.method} ${req.originalUrl}`);
+    console.warn(`[API 404 Check] ${req.method} ${req.originalUrl}`);
     res.status(404).json({ 
-      error: "API endpoint not found",
+      error: `API endpoint not found: ${req.originalUrl}`,
       method: req.method,
       path: req.originalUrl 
     });
+  });
+
+  // Health check for debugging
+  app.get("/healthz", (req, res) => {
+    res.status(200).send("OK Server Running");
   });
 
   // Vite middleware for development
