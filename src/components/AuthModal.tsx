@@ -1,25 +1,67 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, EyeOff, Eye, BadgeDollarSign, Chrome } from 'lucide-react';
+import { X, EyeOff, Eye, Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialView?: 'signIn' | 'signUp';
-  onRegisterSuccess?: () => void;
-  onLoginSuccess?: () => void;
+  onSuccess?: (user: any) => void;
 }
 
-export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onRegisterSuccess, onLoginSuccess }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onSuccess }: AuthModalProps) {
   const [view, setView] = useState<'signIn' | 'signUp'>(initialView);
   const [showPassword, setShowPassword] = useState(false);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Update view when initialView changes
   useEffect(() => {
     setView(initialView);
-  }, [initialView]);
+    setError(null);
+    setIdentifier('');
+    setPassword('');
+    setEmail('');
+  }, [initialView, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const endpoint = view === 'signIn' ? '/api/auth/login' : '/api/auth/register';
+      const body = view === 'signIn' 
+        ? { username: identifier, password } 
+        : { username: identifier, email: email || undefined, password };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Something went wrong');
+      }
+
+      if (onSuccess) {
+        onSuccess(data.user);
+      }
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -67,6 +109,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onR
             {/* Tabs */}
             <div className="flex bg-[#10141D] rounded-xl p-1 gap-1">
               <button
+                type="button"
                 onClick={() => setView('signIn')}
                 className={`flex-1 py-2.5 text-[15px] font-bold rounded-lg transition-colors ${
                   view === 'signIn' ? 'bg-[#00D166] text-white shadow-sm' : 'text-[#94A3B8] hover:text-white'
@@ -75,6 +118,7 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onR
                 Sign In
               </button>
               <button
+                type="button"
                 onClick={() => setView('signUp')}
                 className={`flex-1 py-2.5 text-[15px] font-bold rounded-lg transition-colors ${
                   view === 'signUp' ? 'bg-[#00D166] text-white shadow-sm' : 'text-[#94A3B8] hover:text-white'
@@ -88,30 +132,55 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onR
               Please {view === 'signIn' ? 'sign-in' : 'sign-up'} to your account and start the adventure 🚀
             </p>
 
+            {error && (
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-4 py-3 rounded-xl text-sm font-medium">
+                {error}
+              </div>
+            )}
+
             {/* Form */}
-            <form className="space-y-4" onSubmit={e => e.preventDefault()}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-white/90 ml-1">Email</label>
+                <label className="text-[13px] font-medium text-white/90 ml-1">Username</label>
                 <input 
                   type="text" 
-                  placeholder={view === 'signIn' ? "Enter your email" : "Enter your email or username"}
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  placeholder="Enter your username"
+                  required
                   className="w-full bg-[#10141D] border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#00D166] focus:ring-1 focus:ring-[#00D166] transition-all text-base"
                 />
               </div>
+
+              {view === 'signUp' && (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-white/90 ml-1">Email (Optional)</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="w-full bg-[#10141D] border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#00D166] focus:ring-1 focus:ring-[#00D166] transition-all text-base"
+                  />
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between ml-1 pr-1">
                   <label className="text-[13px] font-medium text-white/90">Password</label>
                   {view === 'signIn' && (
-                    <a href="#" className="text-[13px] text-[#00D166] hover:underline font-medium">
+                    <button type="button" className="text-[13px] text-[#00D166] hover:underline font-medium">
                       Forgot Password?
-                    </a>
+                    </button>
                   )}
                 </div>
                 <div className="relative">
                   <input 
                     type={showPassword ? "text" : "password"} 
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    required
                     className="w-full bg-[#10141D] border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-[#475569] focus:outline-none focus:border-[#00D166] focus:ring-1 focus:ring-[#00D166] transition-all text-base tracking-widest"
                   />
                   <button 
@@ -124,37 +193,13 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onR
                 </div>
               </div>
 
-              {/* Checkbox */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="relative flex items-center justify-center">
-                  <input 
-                    type="checkbox" 
-                    id="auth-checkbox"
-                    className="peer w-5 h-5 appearance-none border border-white/20 rounded-[6px] bg-[#10141D] checked:bg-[#00D166] checked:border-[#00D166] transition-colors cursor-pointer"
-                  />
-                  <svg className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" viewBox="0 0 14 10" fill="none">
-                    <path d="M1 5L4.5 8.5L13 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <label htmlFor="auth-checkbox" className="text-[13px] text-white/90 cursor-pointer select-none">
-                  {view === 'signIn' ? 'Remember Me' : (
-                    <>I agree to the <span className="text-[#00D166] hover:underline">terms and conditions</span></>
-                  )}
-                </label>
-              </div>
-
               {/* Action Button */}
               <button 
-                onClick={() => {
-                  if (view === 'signUp' && onRegisterSuccess) {
-                    onRegisterSuccess();
-                  } else if (view === 'signIn' && onLoginSuccess) {
-                    onLoginSuccess();
-                  }
-                }}
-                className="w-full bg-[#00D166] hover:bg-[#00E673] text-black font-black py-3.5 rounded-xl transition-colors text-[15px] mt-2 uppercase tracking-tight"
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-[#00D166] hover:bg-[#00E673] disabled:opacity-50 disabled:cursor-not-allowed text-black font-black py-3.5 rounded-xl transition-colors text-[15px] mt-2 uppercase tracking-tight flex items-center justify-center gap-2"
               >
-                {view === 'signIn' ? 'Login' : 'Register Now'}
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'signIn' ? 'Login' : 'Register Now')}
               </button>
             </form>
 
@@ -169,34 +214,6 @@ export default function AuthModal({ isOpen, onClose, initialView = 'signIn', onR
                 </button>
               </p>
             </div>
-
-            <div className="relative flex items-center justify-center py-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative bg-[#1E222D] px-4 text-[13px] text-[#475569] font-medium uppercase tracking-tight">
-                or
-              </div>
-            </div>
-
-            <button 
-              onClick={() => {
-                if (view === 'signUp' && onRegisterSuccess) {
-                  onRegisterSuccess();
-                } else if (view === 'signIn' && onLoginSuccess) {
-                  onLoginSuccess();
-                }
-              }}
-              className="w-full bg-white hover:bg-gray-100 flex items-center justify-center gap-3 py-3 rounded-xl transition-colors text-[#10141D] font-bold text-[15px]"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              {view === 'signIn' ? 'Sign In with Google' : 'Sign up with Google'}
-            </button>
           </div>
         </motion.div>
       </div>

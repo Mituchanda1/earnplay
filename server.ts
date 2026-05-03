@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ async function initializeDb() {
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE,
         password VARCHAR(255) NOT NULL,
         avatar TEXT,
         balance DECIMAL(10, 2) DEFAULT 0.00,
@@ -52,6 +54,13 @@ async function initializeDb() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Ensure email column exists (migration for existing tables)
+    try {
+      await p.query("ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE AFTER username");
+    } catch (e) {
+      // Ignore if column already exists
+    }
 
     await p.query(`
       CREATE TABLE IF NOT EXISTS activities (
@@ -110,27 +119,70 @@ async function startServer() {
     }
   });
 
-  // Simple Auth Simulation (Real apps should use proper auth)
-  app.post("/api/auth/login", async (req, res) => {
-    const { username } = req.body;
+  // Authentication Endpoints
+  app.post("/api/auth/register", async (req, res) => {
+    const { username, email, password, avatar } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+
     try {
       const dbPool = getDbPool();
       if (!dbPool) throw new Error("DB not configured");
 
-      const [rows]: any = await dbPool.query("SELECT * FROM users WHERE username = ?", [username]);
-      if (rows.length > 0) {
-        res.json({ user: rows[0] });
-      } else {
-        // Just create the user for demonstration
-        const [result]: any = await dbPool.query(
-          "INSERT INTO users (username, password, avatar) VALUES (?, ?, ?)",
-          [username, "hashed_pass", `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`]
-        );
-        const [newUser]: any = await dbPool.query("SELECT * FROM users WHERE id = ?", [result.insertId]);
-        res.json({ user: newUser[0] });
+      // Check if user already exists
+      const [existing]: any = await dbPool.query("SELECT id FROM users WHERE username = ? OR (email IS NOT NULL AND email = ?)", [username, email || null]);
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "Username or email already exists" });
       }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const [result]: any = await dbPool.query(
+        "INSERT INTO users (username, email, password, avatar) VALUES (?, ?, ?, ?)",
+        [username, email || null, hashedPassword, avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`]
+      );
+
+      const [newUser]: any = await dbPool.query("SELECT id, username, email, avatar, balance, totalEarnings, isPrivate, isAdmin FROM users WHERE id = ?", [result.insertId]);
+      res.status(201).json({ user: newUser[0] });
     } catch (error) {
-      res.status(500).json({ error: String(error) });
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Failed to register user" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      const [rows]: any = await dbPool.query("SELECT * FROM users WHERE username = ? OR email = ?", [username, username]);
+      
+      if (rows.length === 0) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      const user = rows[0];
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+
+      // Don't send password back to client
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Failed to login" });
     }
   });
 
@@ -139,7 +191,7 @@ async function startServer() {
       const dbPool = getDbPool();
       if (!dbPool) throw new Error("DB not configured");
 
-      const [users]: any = await dbPool.query("SELECT * FROM users WHERE id = ?", [req.params.id]);
+      const [users]: any = await dbPool.query("SELECT id, username, email, avatar, balance, totalEarnings, isPrivate, isAdmin FROM users WHERE id = ?", [req.params.id]);
       if (users.length === 0) return res.status(404).json({ error: "User not found" });
 
       const [activities]: any = await dbPool.query("SELECT * FROM activities WHERE user_id = ? ORDER BY created_at DESC", [req.params.id]);
@@ -149,6 +201,21 @@ async function startServer() {
         activities: activities
       };
       res.json(userData);
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.put("/api/user/:id/profile", async (req, res) => {
+    const { username, avatar } = req.body;
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      await dbPool.query("UPDATE users SET username = ?, avatar = ? WHERE id = ?", [username, avatar, req.params.id]);
+      
+      const [users]: any = await dbPool.query("SELECT id, username, email, avatar, balance, totalEarnings, isPrivate, isAdmin FROM users WHERE id = ?", [req.params.id]);
+      res.json({ user: users[0] });
     } catch (error) {
       res.status(500).json({ error: String(error) });
     }

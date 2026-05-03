@@ -145,38 +145,18 @@ export default function App() {
     setAuthModalOpen(true);
   };
 
-  const handleRegisterSuccess = () => {
+  const handleAuthSuccess = (user: any) => {
     setAuthModalOpen(false);
-    setProfileSetupOpen(true);
-  };
-
-  const handleLoginSuccess = (user?: any) => {
-    setAuthModalOpen(false);
-    if (user) {
-      setUserData(user);
-      setIsLoggedIn(true);
-      setCurrentView('earn');
-    } else {
-      // Fallback for demo
-      fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'MysticMage' })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) {
-          setUserData(data.user);
-          setIsLoggedIn(true);
-          setCurrentView('earn');
-        }
-      });
-    }
+    setUserData(user);
+    setIsLoggedIn(true);
+    setCurrentView('earn');
   };
 
   const handleProfileSave = (username: string, avatar: string) => {
-    fetch('/api/auth/login', {
-      method: 'POST',
+    if (!userData.id) return;
+
+    fetch(`/api/user/${userData.id}/profile`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, avatar })
     })
@@ -184,9 +164,7 @@ export default function App() {
     .then(data => {
       if (data.user) {
         setUserData(data.user);
-        setIsLoggedIn(true);
         setProfileSetupOpen(false);
-        setCurrentView('earn');
       }
     });
   };
@@ -306,7 +284,7 @@ export default function App() {
           <>
             <Hero onSignUpClick={() => openAuthModal('signUp')} />
             <OfferGrid />
-            <SignUpSection onRegisterSuccess={handleRegisterSuccess} />
+            <SignUpSection onRegisterSuccess={() => openAuthModal('signUp')} />
             <StatsSection />
             <HowItWorks />
             <ProviderLogos />
@@ -352,8 +330,7 @@ export default function App() {
         isOpen={authModalOpen} 
         onClose={() => setAuthModalOpen(false)} 
         initialView={authModalView} 
-        onRegisterSuccess={handleRegisterSuccess}
-        onLoginSuccess={handleLoginSuccess}
+        onSuccess={handleAuthSuccess}
       />
       
       <ProfileSetupModal
