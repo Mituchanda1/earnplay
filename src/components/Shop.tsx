@@ -259,8 +259,8 @@ function WithdrawModal({ item, onClose, onUpdateBalance, userData, isLoggedIn }:
                 return;
               }
 
-              if (totalPrice > (userData?.balance || 0)) {
-                alert(`Insufficient balance. You have $${(userData?.balance || 0).toFixed(2)}.`);
+              if (totalPrice > (Number(userData?.balance) || 0)) {
+                alert(`Insufficient balance. You have $${(Number(userData?.balance) || 0).toFixed(2)}.`);
                 return;
               }
 

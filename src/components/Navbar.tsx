@@ -20,7 +20,7 @@ export default function Navbar({ onMenuClick, onSignInClick, onSignUpClick, isLo
   const menuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  const balanceUSD = userData?.balance || 0;
+  const balanceUSD = typeof userData?.balance === 'number' ? userData.balance : parseFloat(userData?.balance as any) || 0;
   const balanceCoins = balanceUSD * 1000;
 
   useEffect(() => {

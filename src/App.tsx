@@ -83,9 +83,14 @@ export default function App() {
     if (!data.notifications) data.notifications = [];
     if (data.isPrivate === undefined) data.isPrivate = false;
     if (data.isAdmin === undefined) data.isAdmin = false;
+    
+    // Ensure numeric types
+    data.balance = parseFloat(data.balance) || 0;
+    data.totalEarnings = parseFloat(data.totalEarnings) || 0;
+    
     // Fix: initialize totalEarnings from balance if it's 0 or missing but balance exists
-    if (data.totalEarnings === undefined || (data.totalEarnings === 0 && data.balance > 0)) {
-      data.totalEarnings = data.balance || 0;
+    if (data.totalEarnings === 0 && data.balance > 0) {
+      data.totalEarnings = data.balance;
     }
     return data;
   });
@@ -229,8 +234,8 @@ export default function App() {
 
       return { 
         ...prev, 
-        balance: (prev.balance || 0) + amount,
-        totalEarnings: (prev.totalEarnings || 0) + (amount > 0 ? amount : 0),
+        balance: (parseFloat(prev.balance as any) || 0) + amount,
+        totalEarnings: (parseFloat(prev.totalEarnings as any) || 0) + (amount > 0 ? amount : 0),
         activities: activity ? [activity, ...(prev.activities || [])] : (prev.activities || []),
         notifications: newNotifications.slice(0, 50)
       };
