@@ -109,7 +109,11 @@ async function startServer() {
 
   // Request logger
   app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Host: ${req.get('host')}`);
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl} [${res.statusCode}] - ${duration}ms - Host: ${req.get('host')}`);
+    });
     next();
   });
 
@@ -139,22 +143,20 @@ async function startServer() {
   });
 
   // API routing
-  app.get("/api/db-status", async (req, res) => {
+  const apiRouter = express.Router();
+
+  apiRouter.get("/db-status", async (req, res) => {
     try {
       const dbPool = await getDbPool();
-      if (!dbPool) {
-        return res.status(500).json({ status: "error", message: "Database not configured - Check environment variables" });
-      }
+      if (!dbPool) return res.status(500).json({ status: "error", message: "Database not configured" });
       await dbPool.query("SELECT 1 as val");
       res.json({ status: "ok", message: "Successfully connected to MySQL database!" });
     } catch (error) {
-      console.error("Database connection error:", error);
       res.status(500).json({ status: "error", error: String(error) });
     }
   });
 
-  // Auth routes
-  app.post("/api/auth/register", async (req, res) => {
+  apiRouter.post("/auth/register", async (req, res) => {
     const { username, email, password, avatar } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Username and password are required" });
     try {
@@ -169,7 +171,7 @@ async function startServer() {
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  apiRouter.post("/auth/login", async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Username and password are required" });
     try {
@@ -185,7 +187,7 @@ async function startServer() {
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  app.get("/api/user/:id", async (req, res) => {
+  apiRouter.get("/user/:id", async (req, res) => {
     try {
       const dbPool = await getDbPool();
       if (!dbPool) return res.status(500).json({ error: "DB not configured" });
@@ -196,7 +198,7 @@ async function startServer() {
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  app.put("/api/user/:id/profile", async (req, res) => {
+  apiRouter.put("/user/:id/profile", async (req, res) => {
     const { username, avatar } = req.body;
     try {
       const dbPool = await getDbPool();
@@ -207,7 +209,7 @@ async function startServer() {
     } catch (error) { res.status(500).json({ error: String(error) }); }
   });
 
-  app.post("/api/activity", async (req, res) => {
+  apiRouter.post("/activity", async (req, res) => {
     const { user_id, name, coins, type, status, time } = req.body;
     try {
       const dbPool = await getDbPool();
@@ -220,7 +222,7 @@ async function startServer() {
     } catch (error) { res.status(500).json({ error: String(error) }); }
   });
 
-  app.get("/api/chat", async (req, res) => {
+  apiRouter.get("/chat", async (req, res) => {
     try {
       const dbPool = await getDbPool();
       if (!dbPool) throw new Error("DB not configured");
@@ -229,7 +231,7 @@ async function startServer() {
     } catch (error) { res.status(500).json({ error: String(error) }); }
   });
 
-  app.post("/api/chat", async (req, res) => {
+  apiRouter.post("/chat", async (req, res) => {
     const { sender, avatar, text, time } = req.body;
     try {
       const dbPool = await getDbPool();
@@ -239,9 +241,12 @@ async function startServer() {
     } catch (error) { res.status(500).json({ error: String(error) }); }
   });
 
-  // API 404 handler
-  app.all("/api/*", (req, res) => {
-    res.status(404).json({ error: `Not found: ${req.originalUrl}` });
+  // Use the router
+  app.use("/api", apiRouter);
+
+  // API 404 handler - MUST return JSON
+  app.use("/api", (req, res) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
   });
 
   // Static serving selection
