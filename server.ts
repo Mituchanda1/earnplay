@@ -274,6 +274,16 @@ async function startServer() {
     }
   });
 
+  // Health check for debugging
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      cwd: process.cwd()
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -282,11 +292,37 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Note: If using ESM, __dirname is not defined, but we are building server to CJS using esbuild, so __dirname will work
-    const distPath = path.join(__dirname, '../dist');
+    // In production, serve the built files
+    // Use __dirname as it is more reliable for bundled scripts in a subdirectory
+    const distPath = path.resolve(__dirname, "..", "dist");
+    
+    // Log for debugging
+    console.log(`[Production] Current dir: ${__dirname}`);
+    console.log(`[Production] Attempting to serve static files from: ${distPath}`);
+    
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    
+    // Catch-all route to serve index.html for SPA
+    app.get("*", (req, res) => {
+      const indexPath = path.join(distPath, "index.html");
+      
+      // Check if it's an API route that missed - return 404
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: "API endpoint not found" });
+      }
+
+      // Check if the request is for an asset that doesn't exist
+      if (req.path.startsWith('/assets/')) {
+        console.warn(`Asset not found: ${req.path}`);
+        return res.status(404).send("Asset not found");
+      }
+      
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error("Error sending index.html:", err);
+          res.status(500).send("<h1>Server Error</h1><p>Failed to load the application. Please try again later.</p>");
+        }
+      });
     });
   }
 

@@ -69,13 +69,15 @@ export default function App() {
     const defaultValue = { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
     let data;
     try {
-      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : null;
+      if (saved && saved !== 'undefined') {
+        data = JSON.parse(saved);
+      }
     } catch(e) {
       console.error("Error parsing userData from localStorage", e);
-      data = null;
     }
     
-    if (!data || typeof data !== 'object') {
+    // Ensure data is an object and not an array
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       data = { ...defaultValue };
     }
 
@@ -85,11 +87,11 @@ export default function App() {
     if (data.isAdmin === undefined) data.isAdmin = false;
     
     // Ensure numeric types
-    data.balance = parseFloat(data.balance) || 0;
-    data.totalEarnings = parseFloat(data.totalEarnings) || 0;
+    data.balance = Number(data.balance) || 0;
+    data.totalEarnings = Number(data.totalEarnings) || 0;
     
     // Fix: initialize totalEarnings from balance if it's 0 or missing but balance exists
-    if (data.totalEarnings === 0 && data.balance > 0) {
+    if ((data.totalEarnings === 0 || data.totalEarnings === undefined) && data.balance > 0) {
       data.totalEarnings = data.balance;
     }
     return data;
