@@ -72,9 +72,9 @@ export default function App() {
     const saved = localStorage.getItem('userData');
     let data;
     try {
-      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : { username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
     } catch(e) {
-      data = { username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+      data = { id: null, username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
     }
     if (!data.activities) data.activities = [];
     if (!data.notifications) data.notifications = [];
@@ -94,6 +94,41 @@ export default function App() {
   }, [isLoggedIn, userData, chatMessages]);
 
   useEffect(() => {
+    if (isLoggedIn && userData.id) {
+      fetch(`/api/user/${userData.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && !data.error) {
+            setUserData(prev => ({
+              ...prev,
+              ...data,
+              balance: parseFloat(data.balance),
+              totalEarnings: parseFloat(data.totalEarnings)
+            }));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isLoggedIn, userData.id]);
+
+  useEffect(() => {
+    const fetchChat = () => {
+      fetch('/api/chat')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setChatMessages(data);
+          }
+        })
+        .catch(console.error);
+    };
+
+    fetchChat();
+    const interval = setInterval(fetchChat, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentView, isChatOpen]);
 
@@ -107,21 +142,63 @@ export default function App() {
     setProfileSetupOpen(true);
   };
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (user?: any) => {
     setAuthModalOpen(false);
-    setUserData({ username: 'MysticMage', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Avatar1&backgroundColor=b6e3f4', balance: 0.00, totalEarnings: 0.00, activities: [], isPrivate: false, isAdmin: false });
-    setIsLoggedIn(true);
-    setCurrentView('earn');
+    if (user) {
+      setUserData(user);
+      setIsLoggedIn(true);
+      setCurrentView('earn');
+    } else {
+      // Fallback for demo
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'MysticMage' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          setUserData(data.user);
+          setIsLoggedIn(true);
+          setCurrentView('earn');
+        }
+      });
+    }
   };
 
   const handleProfileSave = (username: string, avatar: string) => {
-    setUserData({ username, avatar, balance: 0.00, totalEarnings: 0.00, activities: [], isPrivate: false, isAdmin: false });
-    setIsLoggedIn(true);
-    setProfileSetupOpen(false);
-    setCurrentView('earn');
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, avatar })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.user) {
+        setUserData(data.user);
+        setIsLoggedIn(true);
+        setProfileSetupOpen(false);
+        setCurrentView('earn');
+      }
+    });
   };
 
   const handleUpdateBalance = (amount: number, activity?: any) => {
+    if (activity && userData.id) {
+       fetch('/api/activity', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+           user_id: userData.id,
+           name: activity.name,
+           coins: amount,
+           type: activity.type || 'reward',
+           status: activity.status || 'Completed',
+           time: activity.time || 'Just now'
+         })
+       }).catch(console.error);
+    }
+
     setUserData(prev => {
       const newNotifications = [...(prev.notifications || [])];
       
@@ -159,6 +236,19 @@ export default function App() {
 
   const handleUpdateUserData = (newData: Partial<any>) => {
     setUserData(prev => ({ ...prev, ...newData }));
+  };
+
+  const onSendMessage = (msg: any) => {
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg)
+    }).catch(console.error);
+
+    setChatMessages(prev => {
+      const newMessages = [...prev, msg];
+      return newMessages.slice(-50);
+    });
   };
 
   return (
@@ -246,10 +336,7 @@ export default function App() {
           isLoggedIn={isLoggedIn} 
           userData={userData} 
           messages={chatMessages}
-          onSendMessage={(msg) => setChatMessages(prev => {
-            const newMessages = [...prev, msg];
-            return newMessages.slice(-50); // Keep only last 50 messages
-          })}
+          onSendMessage={onSendMessage}
         />
       )}
       

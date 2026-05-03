@@ -26,8 +26,61 @@ function getDbPool() {
       connectionLimit: 10,
       queueLimit: 0
     });
+
+    // Initialize tables
+    initializeDb().catch(console.error);
   }
   return pool;
+}
+
+async function initializeDb() {
+  const p = getDbPool();
+  if (!p) return;
+
+  try {
+    console.log("Initializing database tables...");
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        avatar TEXT,
+        balance DECIMAL(10, 2) DEFAULT 0.00,
+        totalEarnings DECIMAL(10, 2) DEFAULT 0.00,
+        isPrivate BOOLEAN DEFAULT FALSE,
+        isAdmin BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS activities (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        coins DECIMAL(10, 2) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        time VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sender VARCHAR(255) NOT NULL,
+        avatar TEXT,
+        text TEXT NOT NULL,
+        time VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("Database tables initialized successfully.");
+  } catch (err) {
+    console.error("Error initializing database:", err);
+  }
 }
 
 async function startServer() {
@@ -54,6 +107,103 @@ async function startServer() {
         message: "Failed to connect to database", 
         error: error instanceof Error ? error.message : String(error) 
       });
+    }
+  });
+
+  // Simple Auth Simulation (Real apps should use proper auth)
+  app.post("/api/auth/login", async (req, res) => {
+    const { username } = req.body;
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      const [rows]: any = await dbPool.query("SELECT * FROM users WHERE username = ?", [username]);
+      if (rows.length > 0) {
+        res.json({ user: rows[0] });
+      } else {
+        // Just create the user for demonstration
+        const [result]: any = await dbPool.query(
+          "INSERT INTO users (username, password, avatar) VALUES (?, ?, ?)",
+          [username, "hashed_pass", `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`]
+        );
+        const [newUser]: any = await dbPool.query("SELECT * FROM users WHERE id = ?", [result.insertId]);
+        res.json({ user: newUser[0] });
+      }
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.get("/api/user/:id", async (req, res) => {
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      const [users]: any = await dbPool.query("SELECT * FROM users WHERE id = ?", [req.params.id]);
+      if (users.length === 0) return res.status(404).json({ error: "User not found" });
+
+      const [activities]: any = await dbPool.query("SELECT * FROM activities WHERE user_id = ? ORDER BY created_at DESC", [req.params.id]);
+      
+      const userData = {
+        ...users[0],
+        activities: activities
+      };
+      res.json(userData);
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.post("/api/activity", async (req, res) => {
+    const { user_id, name, coins, type, status, time } = req.body;
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      await dbPool.query(
+        "INSERT INTO activities (user_id, name, coins, type, status, time) VALUES (?, ?, ?, ?, ?, ?)",
+        [user_id, name, coins, type, status, time]
+      );
+      
+      // Update user balance
+      if (status === "Completed" || coins < 0) {
+        await dbPool.query(
+          "UPDATE users SET balance = balance + ?, totalEarnings = totalEarnings + ? WHERE id = ?",
+          [coins, coins > 0 ? coins : 0, user_id]
+        );
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.get("/api/chat", async (req, res) => {
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      const [rows]: any = await dbPool.query("SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT 50");
+      res.json(rows.reverse());
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.post("/api/chat", async (req, res) => {
+    const { sender, avatar, text, time } = req.body;
+    try {
+      const dbPool = getDbPool();
+      if (!dbPool) throw new Error("DB not configured");
+
+      await dbPool.query(
+        "INSERT INTO chat_messages (sender, avatar, text, time) VALUES (?, ?, ?, ?)",
+        [sender, avatar, text, time]
+      );
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
     }
   });
 
