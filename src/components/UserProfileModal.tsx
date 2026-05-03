@@ -83,8 +83,8 @@ export default function UserProfileModal({ user, onClose, showUSD }: UserProfile
                         </p>
                         <p className="text-white text-lg font-black">
                           {showUSD ? 
-                            `$${((user.history || []).reduce((sum: number, h: any) => sum + (h.coins > 0 ? h.coins : 0), 0) || user.points || 0 / 1000).toFixed(2)}` :
-                            ((user.history || []).reduce((sum: number, h: any) => sum + (h.coins > 0 ? h.coins : 0), 0) || user.points || 0).toLocaleString()
+                            `$${(Number((user.history || []).reduce((sum: number, h: any) => sum + (h.coins > 0 ? h.coins : 0), 0) || user.points || 0) / 1000).toFixed(2)}` :
+                            (Number((user.history || []).reduce((sum: number, h: any) => sum + (h.coins > 0 ? h.coins : 0), 0) || user.points || 0)).toLocaleString()
                           }
                         </p>
                       </div>
@@ -123,8 +123,8 @@ export default function UserProfileModal({ user, onClose, showUSD }: UserProfile
                             <div className="w-2 h-2 bg-[#FFD100] rounded-full shadow-[0_0_8px_rgba(255,209,0,0.5)]" />
                             <span className={`font-black text-[13px] ${item.coins > 0 ? 'text-[#00D166]' : 'text-red-500'}`}>
                               {showUSD ? 
-                                `${item.coins > 0 ? '+' : ''}${(item.coins / 1000).toFixed(2)}` : 
-                                (item.coins > 0 ? `+${item.coins}` : item.coins)
+                                `${item.coins > 0 ? '+' : ''}${(Number(item.coins || 0) / 1000).toFixed(2)}` : 
+                                (item.coins > 0 ? `+${item.coins}` : (item.coins || 0))
                               }
                             </span>
                           </div>

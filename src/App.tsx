@@ -239,6 +239,21 @@ export default function App() {
     });
   };
 
+  if (!userData) return (
+    <div className="min-h-screen bg-[#0B0E14] flex items-center justify-center text-[#94A3B8] font-bold p-4 text-center">
+      <div className="max-w-md space-y-4">
+        <h1 className="text-white text-2xl font-black">Something went wrong</h1>
+        <p>Failed to initialize application user data. Please try clearing your browser cache and refreshing the page.</p>
+        <button 
+          onClick={() => { localStorage.clear(); window.location.reload(); }}
+          className="bg-[#00D166] text-black px-8 py-3 rounded-xl font-black"
+        >
+          Reset and Reload
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div id="app-container" className="min-h-screen bg-[#000000] text-white font-sans selection:bg-[#00D166]/30 selection:text-[#00D166]">
       <Sidebar 

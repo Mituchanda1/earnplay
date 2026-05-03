@@ -91,7 +91,7 @@ export default function Leaderboard({ showUSD, userData }: { showUSD: boolean; u
         <div className="bg-[#1A1D27] rounded-[20px] px-6 py-4 flex items-center gap-3 w-max justify-center">
           <CreditCard className="w-5 h-5 text-[#00D166]" />
           <span className="text-white font-bold tracking-tight">
-            Total Earned: {showUSD ? `$${(Number(userData?.totalEarnings) || 0).toFixed(2)}` : `${userPoints.toLocaleString()} Coins`}
+            Total Earned: {showUSD ? `$${(Number(userData?.totalEarnings) || 0).toFixed(2)}` : `${(Number(userPoints) || 0).toLocaleString()} Coins`}
           </span>
         </div>
         <div className="bg-[#1A1D27] rounded-[20px] px-6 py-4 flex items-center gap-3 w-max justify-center">
@@ -145,7 +145,7 @@ export default function Leaderboard({ showUSD, userData }: { showUSD: boolean; u
 
               {/* Points */}
               <div className="text-right text-[#00D166] font-black tracking-tight text-[15px]">
-                {showUSD ? `$${(Number(user.points) / 1000).toFixed(2)}` : user.points.toLocaleString()}
+                {showUSD ? `$${(Number(user.points || 0) / 1000).toFixed(2)}` : (Number(user.points || 0)).toLocaleString()}
               </div>
             </div>
           ))}
@@ -193,7 +193,7 @@ function PodiumCard({ user, isFirst = false, height, onClick, showUSD }: { user:
         {user.name}
       </div>
       <div className="text-[#00D166] font-black text-[15px] z-10">
-        {showUSD ? `$${(Number(user.points) / 1000).toFixed(2)}` : user.points.toLocaleString()}
+        {showUSD ? `$${(Number(user.points || 0) / 1000).toFixed(2)}` : (Number(user.points || 0)).toLocaleString()}
       </div>
     </motion.div>
   );

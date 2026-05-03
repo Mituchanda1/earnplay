@@ -275,12 +275,22 @@ async function startServer() {
   });
 
   // Health check for debugging
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", async (req, res) => {
+    const distPath = path.resolve(__dirname, "..", "dist");
+    let distFiles: string[] = [];
+    try {
+      const fs = await import("fs/promises");
+      distFiles = await fs.readdir(distPath).catch(() => []);
+    } catch (e) {}
+
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(),
       env: process.env.NODE_ENV,
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      dirname: __dirname,
+      distPath,
+      distFiles
     });
   });
 
