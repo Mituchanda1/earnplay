@@ -274,6 +274,16 @@ async function startServer() {
     }
   });
 
+  // API 404 fallback - Handle all unmatched /api/* routes
+  app.all("/api/*", (req, res) => {
+    console.warn(`Unmatched API request: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ 
+      error: "API endpoint not found",
+      method: req.method,
+      path: req.originalUrl 
+    });
+  });
+
   // Health check for debugging
   app.get("/api/health", async (req, res) => {
     const distPath = path.resolve(__dirname, "..", "dist");
@@ -287,6 +297,7 @@ async function startServer() {
       status: "ok", 
       time: new Date().toISOString(),
       env: process.env.NODE_ENV,
+      dbConfigured: !!(process.env.MYSQL_HOST && process.env.MYSQL_DATABASE),
       cwd: process.cwd(),
       dirname: __dirname,
       distPath,
@@ -310,22 +321,28 @@ async function startServer() {
     console.log(`[Production] Current dir: ${__dirname}`);
     console.log(`[Production] Attempting to serve static files from: ${distPath}`);
     
+    // Check if dist/index.html exists
+    import("fs").then(fs => {
+      if (fs.existsSync(path.join(distPath, "index.html"))) {
+        console.log("[Production] index.html found in dist.");
+      } else {
+        console.error("[Production] index.html NOT found in dist!");
+        // Look in current directory as fallback
+        const altDistPath = path.resolve(process.cwd(), "dist");
+        console.log(`[Production] Trying fallback dist path: ${altDistPath}`);
+        if (fs.existsSync(path.join(altDistPath, "index.html"))) {
+          console.log("[Production] index.html found in fallback dist.");
+        }
+      }
+    });
+    
     app.use(express.static(distPath));
     
     // Catch-all route to serve index.html for SPA
     app.get("*", (req, res) => {
+      // If we reach here, it's a GET request that didn't match any static file or API route
+      // Serve the SPA index.html
       const indexPath = path.join(distPath, "index.html");
-      
-      // Check if it's an API route that missed - return 404
-      if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: "API endpoint not found" });
-      }
-
-      // Check if the request is for an asset that doesn't exist
-      if (req.path.startsWith('/assets/')) {
-        console.warn(`Asset not found: ${req.path}`);
-        return res.status(404).send("Asset not found");
-      }
       
       res.sendFile(indexPath, (err) => {
         if (err) {

@@ -55,6 +55,17 @@ export default function Navbar({ onMenuClick, onSignInClick, onSignUpClick, isLo
             >
               <Menu className="w-6 h-6 text-white" />
             </button>
+            <div 
+              className="ml-3 flex items-center gap-1.5 cursor-pointer"
+              onClick={() => onNavigate?.('earn')}
+            >
+              <div className="w-8 h-8 bg-[#00D166] rounded-lg flex items-center justify-center rotate-3 border-2 border-white/10 shadow-[0_0_15px_rgba(0,209,102,0.3)]">
+                <span className="text-black font-black text-lg italic">E</span>
+              </div>
+              <span className="text-white font-black text-xl tracking-tighter hidden sm:block">
+                EARN<span className="text-[#00D166]">PLAY</span>
+              </span>
+            </div>
           </div>
           
           <div className="flex items-center gap-2 md:gap-3 overflow-visible h-full">
