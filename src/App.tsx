@@ -42,15 +42,27 @@ export default function App() {
   const [showUSD, setShowUSD] = useState(true);
   const [chatMessages, setChatMessages] = useState<any[]>(() => {
     const saved = localStorage.getItem('chatMessages');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: '1',
-        sender: 'System',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
-        text: 'Welcome to the global chat!',
-        time: 'Just now'
-      }
-    ];
+    try {
+      return (saved && saved !== 'undefined') ? JSON.parse(saved) : [
+        {
+          id: '1',
+          sender: 'System',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
+          text: 'Welcome to the global chat!',
+          time: 'Just now'
+        }
+      ];
+    } catch(e) {
+      return [
+        {
+          id: '1',
+          sender: 'System',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=System',
+          text: 'Welcome to the global chat!',
+          time: 'Just now'
+        }
+      ];
+    }
   });
   
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -58,7 +70,12 @@ export default function App() {
   });
   const [userData, setUserData] = useState(() => {
     const saved = localStorage.getItem('userData');
-    const data = saved ? JSON.parse(saved) : { username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+    let data;
+    try {
+      data = (saved && saved !== 'undefined') ? JSON.parse(saved) : { username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+    } catch(e) {
+      data = { username: '', avatar: '', balance: 0.00, totalEarnings: 0.00, activities: [], notifications: [], isPrivate: false, isAdmin: false };
+    }
     if (!data.activities) data.activities = [];
     if (!data.notifications) data.notifications = [];
     if (data.isPrivate === undefined) data.isPrivate = false;

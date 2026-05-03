@@ -4,6 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      try {
+        const originalFetch = window.fetch;
+        if (originalFetch) {
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function(val) { console.warn('Ignored attempt to overwrite window.fetch', val); },
+            configurable: true
+          });
+        }
+      } catch (e) {
+        console.error('Failed to configure defensive fetch polyfill barrier', e);
+      }
+      
+      const originalParse = JSON.parse;
+      JSON.parse = function(str, reviver) {
+        if (str === "undefined" || str === "NaN" || typeof str === "undefined") {
+          console.warn('Prevented JSON.parse from failing on "undefined" or undefined');
+          return undefined;
+        }
+        return originalParse(str, reviver);
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>
