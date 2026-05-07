@@ -12,7 +12,13 @@ dotenv.config();
 
 // Static serving path
 const distPath = path.resolve(process.cwd(), "dist");
-const isProduction = fs.existsSync(path.join(distPath, "index.html")) || process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(path.join(distPath, "index.html"));
+
+if (isProduction) {
+  console.log(`[Server] MODE: PRODUCTION (NODE_ENV: ${process.env.NODE_ENV})`);
+} else {
+  console.log("[Server] MODE: DEVELOPMENT");
+}
 
 // Lazy database initialization
 let pool: mysql.Pool | null = null;
