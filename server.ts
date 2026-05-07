@@ -6,7 +6,13 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import cors from "cors";
 
+import fs from "fs";
+
 dotenv.config();
+
+// Static serving path
+const distPath = path.resolve(process.cwd(), "dist");
+const isProduction = fs.existsSync(path.join(distPath, "index.html")) || process.env.NODE_ENV === "production";
 
 // Lazy database initialization
 let pool: mysql.Pool | null = null;
@@ -257,22 +263,17 @@ async function startServer() {
     console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
     res.status(404).json({ 
       error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
-      tip: "Ensure you are calling the correct path (e.g., /api/auth/login)"
+      method: req.method,
+      path: req.originalUrl,
+      timestamp: new Date().toISOString()
     });
   });
 
-  // Static serving selection
-  const distPath = path.resolve(process.cwd(), "dist");
-  let isProduction = false;
-  try {
-    const fs = await import("fs");
-    isProduction = fs.existsSync(path.join(distPath, "index.html"));
-  } catch (e) {}
-
-  if (isProduction || process.env.NODE_ENV === "production") {
+  if (isProduction) {
     console.log(`[Server] Serving production assets from ${distPath}`);
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      console.log(`[Static] Serving index.html for: ${req.originalUrl}`);
       res.sendFile(path.join(distPath, "index.html"));
     });
   } else {
