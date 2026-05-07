@@ -269,12 +269,14 @@ async function startServer() {
     console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
     res.status(404).json({ 
       error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
+      tip: "If you see this on your live site, Nginx is proxying correctly but the path is wrong. If you see a generic HTML 404 page, Nginx is NOT proxying to this server.",
       method: req.method,
       path: req.originalUrl,
       timestamp: new Date().toISOString()
     });
   });
 
+  // Force sync comment: Updated last at 2026-05-07T21:35
   if (isProduction) {
     console.log(`[Server] Serving production assets from ${distPath}`);
     app.use(express.static(distPath));
